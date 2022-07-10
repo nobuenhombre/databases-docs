@@ -288,3 +288,168 @@ Non-Repeatable и Phantom Read
 
 и попробуем перейти на самый высокий уровень изоляции,
 чтобы посмотреть, можно ли предотвратить эту проблему или нет.
+
+
+Сериализуемый уровень изоляции в MySQL
+--------------------------------------
+
+Хорошо, давайте установим уровень изоляции обеих сессий **serializable**
+и начнем транзакции.
+
+.. code-block:: sql
+  :linenos:
+
+    set session transaction isolation level serializable;
+
+.. image:: ../../img/mysql/015-serializable-1.png
+  :width: 1723
+  :alt: mysql - serializable part 1
+
+OK, обе транзакции запущены.
+Теперь давайте выберем все учетные записи в transaction 1
+и выберем только учетную запись 1 в transaction 2.
+
+.. image:: ../../img/mysql/016-serializable-2.png
+  :width: 1723
+  :alt: mysql - serializable part 2
+
+Далее вернитесь transaction 1 и вычтите из его баланса еще 10 долларов.
+
+.. image:: ../../img/mysql/017-serializable-3.png
+  :width: 1723
+  :alt: mysql - serializable part 3
+
+На этот раз, что интересно, запрос на обновление заблокирован.
+Таким образом, в основном запрос выбора transaction 2
+блокирует этот запрос обновления в transaction 1.
+
+Причина в том, что на serializable уровне изоляции
+MySQL неявно преобразует все простые SELECT запросы
+в файлы SELECT FOR SHARE.
+
+И транзакция, которая удерживает SELECT FOR SHARE блокировку,
+разрешает другим транзакциям доступ к READ строкам,
+но не к UPDATE и DELETE.
+
+Таким образом, с этим механизмом блокировки
+сценарий противоречивых данных, который мы видели раньше,
+больше невозможен.
+
+Однако эта блокировка имеет время ожидания.
+Таким образом, если вторая транзакция
+не зафиксируется или не откатится,
+чтобы снять блокировку в течение этого времени,
+мы увидим ошибку превышения времени ожидания блокировки,
+подобную этой:
+
+.. image:: ../../img/mysql/017-serializable-3.png
+  :width: 1723
+  :alt: mysql - serializable part 3
+
+.. code-block:: sql
+  :linenos:
+
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      ERROR 1205 (HY000): Lock wait timeout exceeded; try restarting transaction
+
+Поэтому, когда вы используете serializable уровень изоляции
+в своем приложении, убедитесь, что вы реализовали
+стратегию повторных транзакций на случай тайм-аута.
+
+Хорошо, теперь я собираюсь перезапустить это transaction 1,
+запустить запрос выбора, а затем обновить баланс учетной записи 1.
+
+.. code-block:: sql
+  :linenos:
+
+      -- Terminal 1:
+      mysql> rollback;
+      Query OK, 0 rows affected (0.00 sec)
+
+      mysql> begin;
+      Query OK, 0 rows affected (0.00 sec)
+
+      mysql> select * from accounts;
+      +----+-------+---------+----------+---------------------+
+      | id | owner | balance | currency | created_at          |
+      +----+-------+---------+----------+---------------------+
+      |  1 | one   |      70 | USD      | 2020-09-06 15:09:38 |
+      |  2 | two   |     100 | USD      | 2020-09-06 15:09:38 |
+      |  3 | three |     100 | USD      | 2020-09-06 15:09:38 |
+      +----+-------+---------+----------+---------------------+
+      3 rows in set (0.00 sec)
+
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      _
+
+Но на этот раз я не допущу истечения времени ожидания блокировки.
+Давайте посмотрим, что произойдет, если transaction 2
+также попытается обновить баланс той же учетной записи 1.
+
+.. image:: ../../img/mysql/018-serializable-4.png
+  :width: 1723
+  :alt: mysql - serializable part 4
+
+.. code-block:: sql
+  :linenos:
+
+      -- Terminal 2:
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      ERROR 1213 (40001): Deadlock found when trying to get lock; try restarting transaction
+
+      -- Terminal 1:
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      Query OK, 1 row affected (23.59 sec)
+      Rows matched: 1  Changed: 1  Warnings: 0
+
+Ну вот, возникла взаимоблокировка,
+потому что теперь transaction 2 также нужно дождаться
+блокировки от transaction 1 запроса select.
+
+Так что имейте в виду, что, помимо lock wait timeout,
+вам также нужно позаботиться о возможной deadlock ситуации.
+
+Теперь попробуем перезапустить обе транзакции,
+затем выберем аккаунт 1.
+
+Теперь давайте обновим баланс учетной записи 1 в transaction 1,
+а затем зафиксируем transaction 2.
+
+.. code-block:: sql
+  :linenos:
+
+      -- Terminal 1:
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      _
+
+      -- Terminal 2:
+      mysql> commit;
+      Query OK, 0 rows affected (0.00 sec)
+
+Как видите, после фиксации transaction 2
+блокировка сразу снимается, и баланс 1-го аккаунта успешно обновляется:
+
+.. code-block:: sql
+  :linenos:
+
+      -- Terminal 1:
+      mysql> update accounts set balance = balance - 10 where id = 1;
+      Query OK, 1 row affected (3.34 sec)
+      Rows matched: 1  Changed: 1  Warnings: 0
+
+      mysql> select * from accounts where id = 1;
+      +----+-------+---------+----------+---------------------+
+      | id | owner | balance | currency | created_at          |
+      +----+-------+---------+----------+---------------------+
+      |  1 | one   |      60 | USD      | 2020-09-06 15:09:38 |
+      +----+-------+---------+----------+---------------------+
+      1 row in set (0.00 sec)
+
+      mysql> commit;
+      Query OK, 0 rows affected (0.01 sec)
+
+Хорошо, пока мы испытали все 4 уровня изоляции в MySQL и то,
+как они помогают предотвратить некоторые феномены чтения.
+
+Теперь посмотрим, как они работают в Postgres!
+Эффекты будут очень похожи, но будут и некоторые отличия.
