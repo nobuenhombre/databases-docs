@@ -57,7 +57,7 @@ CREATE TABLE users
     hashed_password     varchar        NOT NULL,
     full_name           varchar        NOT NULL,
     email               varchar UNIQUE NOT NULL,
-    password_changed_at timestamptz    NOT NULL DEFAULT ('0001-01-01 00:00:00Z'),
+    password_changed_at timestamptz    NOT NULL DEFAULT (now()),
     created_at          timestamptz    NOT NULL DEFAULT (now())
 );
 
@@ -82,3 +82,15 @@ CREATE TABLE sessions
 
 ALTER TABLE sessions
     ADD FOREIGN KEY (username) REFERENCES users (username);
+
+INSERT INTO users (username, hashed_password, full_name, email)
+VALUES
+    ('one', MD5('one'), 'One Ivan', 'one.ivan@gmail.com'),
+    ('two', MD5('two'), 'Two Stepan', 'two.stepan@mail.ru'),
+    ('three', MD5('three'), 'Three Boromeer', 'three.boromeer@bomail.io');
+
+INSERT INTO accounts (owner, balance, currency)
+VALUES
+    ('one', 100, 'USD'),
+    ('two', 100, 'USD'),
+    ('three', 100, 'USD');
