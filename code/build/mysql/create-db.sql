@@ -1,0 +1,5 @@
+-- MySQL
+CREATE USER 'demo'@'localhost' IDENTIFIED BY '123';
+CREATE DATABASE demo;
+GRANT ALL PRIVILEGES ON demo.* TO 'demo'@'localhost';
+FLUSH PRIVILEGES;
