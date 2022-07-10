@@ -32,7 +32,9 @@ first-run:
 ## create-db: создать бд
 create-db:
 	docker cp create-db.sql $(CONTAINER_NAME):create-db.sql && \
-	docker exec $(CONTAINER_NAME) bash -l -c "psql -U postgres < create-db.sql"
+	docker cp db.sql $(CONTAINER_NAME):db.sql && \
+	docker exec $(CONTAINER_NAME) bash -l -c "psql -U postgres < create-db.sql" && \
+	docker exec $(CONTAINER_NAME) bash -l -c "psql -U demo -d demo < db.sql"
 
 ## start: Запустить контейнер локальной базы Postgres
 start:
