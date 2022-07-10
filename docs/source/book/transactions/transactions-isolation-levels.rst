@@ -107,6 +107,8 @@ Isolation
    :maxdepth: 5
    :caption: Содержание:
 
+   prepare-demo-db-mysql.rst
+   prepare-demo-db-postgresql.rst
    transactions-isolation-levels-mysql.rst
    transactions-isolation-levels-postgresql.rst
 
