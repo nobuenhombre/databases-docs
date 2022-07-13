@@ -1,6 +1,8 @@
 Уровни Изоляции Транзакций в PostgreSQL
 =======================================
 
+https://www.postgresql.org/docs/current/transaction-iso.html
+
 Во-первых, давайте запустим 2 консоли SQL PostgreSQL.
 
 Получить текущий уровень изоляции в Postgres
