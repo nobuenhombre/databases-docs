@@ -94,3 +94,48 @@ VALUES
     ('one', 100, 'USD'),
     ('two', 100, 'USD'),
     ('three', 100, 'USD');
+
+
+create table languages
+(
+    id   bigserial
+        constraint languages_pk
+            primary key,
+    name varchar(255)
+);
+
+create unique index languages_name_uindex
+    on languages (name);
+
+INSERT INTO public.languages (id, name) VALUES (1, 'РУССКИЙ');
+INSERT INTO public.languages (id, name) VALUES (2, '中文');
+INSERT INTO public.languages (id, name) VALUES (3, 'TÜRKÇE');
+INSERT INTO public.languages (id, name) VALUES (4, 'ESPAÑOL');
+INSERT INTO public.languages (id, name) VALUES (5, 'ENGLISH');
+INSERT INTO public.languages (id, name) VALUES (6, 'FRANÇAIS');
+INSERT INTO public.languages (id, name) VALUES (7, 'PORTUGUÊS');
+INSERT INTO public.languages (id, name) VALUES (8, 'DEUTSCH');
+INSERT INTO public.languages (id, name) VALUES (9, 'POLSKI');
+
+create table words
+(
+    id      bigserial
+        constraint words_pk
+            primary key,
+    lang_id bigint not null
+        constraint words_languages_id_fk
+            references languages
+            on update cascade on delete cascade,
+    name    varchar(255)
+);
+
+create unique index words_lang_id_name_uindex
+    on words (lang_id, name);
+
+alter table words
+    drop constraint words_languages_id_fk;
+
+INSERT INTO public.words (id, lang_id, name) VALUES (1, 5, 'Hello');
+INSERT INTO public.words (id, lang_id, name) VALUES (2, 6, 'Bonjour');
+INSERT INTO public.words (id, lang_id, name) VALUES (3, 7, 'Hola');
+INSERT INTO public.words (id, lang_id, name) VALUES (5, 10, 'हैलो।');
